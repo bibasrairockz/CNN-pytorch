@@ -6,8 +6,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from PIL import Image
-from convnet import ConvNet  # Replace with your model class definition
-
+# from cnn import ConvNet  # Replace with your model class definition
 
 device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Processor: {device}")
@@ -22,8 +21,10 @@ batch_size= 4
 n_iters= 50
 learning_rate= 0.001
 n_psteps= 1000
+
 train_loader= DataLoader(dataset= train_dataset, shuffle= True, batch_size= batch_size)
 test_loader= DataLoader(dataset= test_dataset, shuffle= False, batch_size= batch_size)
+
 class ConvNet(nn.Module):
     def __init__(self):
         super(ConvNet, self).__init__()
@@ -42,6 +43,7 @@ class ConvNet(nn.Module):
         out= F.relu(self.fc2(out))
         out= self.fc3(out)
         return out
+
 model= ConvNet().to(device)
 
 loss= nn.CrossEntropyLoss()
@@ -67,36 +69,53 @@ def train():
                 print(f"Epoch [{epoch+1}/{n_iters}] | Steps [{i+1}/{n_steps}]: COST= {cost.item():.4f}")
 
         scheduler.step()
+        torch.save(model.state_dict(), "./cnn1.pth")
+        break
+
 
 def accuracy():
-    n_samples= n_pred= 0
-    n_class_samples= n_class_pred= [ 0 for i in range(10)]
+    n_samples = n_pred = 0
+    n_class_samples = [0 for _ in range(10)]
+    n_class_pred = [0 for _ in range(10)]
+
+    model = ConvNet().to(device)
+    model.load_state_dict(torch.load('./cnn1.pth'))
+    model.eval()
+
     for (data, labels) in test_loader:
-        data= data.to(device)
-        labels= labels.to(device)
-        Y_pred= model(data)
-        _, pred= torch.max(Y_pred, 1)
-        n_pred+= (pred==labels).sum().item()
-        n_samples+= labels.shape[0]
-        for i in range(batch_size):
-            label= labels[i]
-            prd= pred[i]
-            if (label == prd):
-                n_class_pred[label]+= 1
-            n_class_pred[label]+= 1
-    acc= (n_pred/n_samples)*100.0
-    print(f"Accuracy= {acc:.2f}%")
-    classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+        data = data.to(device)
+        labels = labels.to(device)
+        Y_pred = model(data)
+        _, pred = torch.max(Y_pred, 1)  
+        n_pred += (pred == labels).sum().item()
+        n_samples += labels.shape[0]
+
+        for i in range(labels.size(0)):
+            label = labels[i].item()
+            n_class_samples[label] += 1
+            if label == pred[i].item():
+                n_class_pred[label] += 1
+
+    # Overall accuracy
+    acc = (n_pred / n_samples) * 100.0
+    print(f"Overall Accuracy = {acc:.2f}%")
+
+    # Accuracy per class
+    classes = ('plane', 'car', 'bird', 'cat', 'deer', 
+               'dog', 'frog', 'horse', 'ship', 'truck')
     for i in range(10):
-        acc = 100.0 * n_class_pred[i] / n_class_samples[i]
-        print(f'Accuracy of {classes[i]}: {acc:.2f}%')
+        if n_class_samples[i] > 0:
+            acc_class = 100.0 * (n_class_pred[i] / n_class_samples[i])
+        else:
+            acc_class = 0.0
+        print(f'Accuracy of {classes[i]}: {acc_class:.2f}%')
+
 
 def infer():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = ConvNet().to(device)
-    model.load_state_dict(torch.load('./cnn.pth'))
+    model.load_state_dict(torch.load('./cnn1.pth'))
     model.eval()
 
     transform = transforms.Compose([
@@ -105,14 +124,16 @@ def infer():
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
-    img = Image.open('image.jpg')
+    img = Image.open('frog.jpg')
     img = transform(img).unsqueeze(0).to(device)
 
     with torch.no_grad():
         outputs = model(img)
         _, predicted = torch.max(outputs.data, 1)
 
-    print(f'Predicted class index: {predicted.item()}')
+    classes = ('plane', 'car', 'bird', 'cat',
+           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    print(f'Predicted class index: {classes[predicted.item()]}')
             
 
 if __name__=="__main__":

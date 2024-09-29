@@ -6,7 +6,6 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from PIL import Image
-# from cnn import ConvNet  # Replace with your model class definition
 
 device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Processor: {device}")
